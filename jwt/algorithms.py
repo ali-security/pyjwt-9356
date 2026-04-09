@@ -7,8 +7,8 @@ from .compat import constant_time_compare, string_types
 from .exceptions import InvalidKeyError
 from .utils import (
     base64url_decode, base64url_encode, der_to_raw_signature,
-    force_bytes, force_unicode, from_base64url_uint, raw_to_der_signature,
-    to_base64url_uint
+    force_bytes, force_unicode, from_base64url_uint, is_pem_format,
+    is_ssh_key, raw_to_der_signature, to_base64url_uint
 )
 
 try:
@@ -139,14 +139,7 @@ class HMACAlgorithm(Algorithm):
     def prepare_key(self, key):
         key = force_bytes(key)
 
-        invalid_strings = [
-            b'-----BEGIN PUBLIC KEY-----',
-            b'-----BEGIN CERTIFICATE-----',
-            b'-----BEGIN RSA PUBLIC KEY-----',
-            b'ssh-rsa'
-        ]
-
-        if any([string_value in key for string_value in invalid_strings]):
+        if is_pem_format(key) or is_ssh_key(key):
             raise InvalidKeyError(
                 'The specified key is an asymmetric key or x509 certificate and'
                 ' should not be used as an HMAC secret.')

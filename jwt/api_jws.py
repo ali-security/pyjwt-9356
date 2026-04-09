@@ -92,7 +92,7 @@ class PyJWS(object):
         header = {'typ': self.header_typ, 'alg': algorithm}
 
         if headers:
-            self._validate_headers(headers)
+            self._validate_headers(headers, encoding=True)
             header.update(headers)
 
         json_header = force_bytes(
@@ -146,6 +146,8 @@ class PyJWS(object):
             )
 
         payload, signing_input, header, signature = self._load(jwt)
+
+        self._validate_headers(header)
 
         if not verify:
             warnings.warn('The verify parameter is deprecated. '
@@ -225,13 +227,33 @@ class PyJWS(object):
         except KeyError:
             raise InvalidAlgorithmError('Algorithm not supported')
 
-    def _validate_headers(self, headers):
+    # Extensions that PyJWT actually understands and supports
+    # Note: This version does not support b64/detached payloads
+    _supported_crit = set()
+
+    def _validate_headers(self, headers, encoding=False):
         if 'kid' in headers:
             self._validate_kid(headers['kid'])
+        if not encoding and 'crit' in headers:
+            self._validate_crit(headers)
 
     def _validate_kid(self, kid):
         if not isinstance(kid, string_types):
             raise InvalidTokenError('Key ID header parameter must be a string')
+
+    def _validate_crit(self, headers):
+        crit = headers['crit']
+        if not isinstance(crit, list) or len(crit) == 0:
+            raise InvalidTokenError("Invalid 'crit' header: must be a non-empty list")
+        for ext in crit:
+            if not isinstance(ext, string_types):
+                raise InvalidTokenError("Invalid 'crit' header: values must be strings")
+            if ext not in self._supported_crit:
+                raise InvalidTokenError("Unsupported critical extension: {0}".format(ext))
+            if ext not in headers:
+                raise InvalidTokenError(
+                    "Critical extension '{0}' is missing from headers".format(ext)
+                )
 
 
 _jws_global_obj = PyJWS()

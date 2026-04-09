@@ -520,3 +520,22 @@ class TestJWT:
             pass
         else:
             assert False, "Unexpected DeprecationWarning raised."
+
+    # -------------------- Crit Header Tests --------------------
+
+    def test_decode_rejects_token_with_unknown_crit_extension(self, jwt):
+        """RFC 7515 §4.1.11: tokens with unsupported critical extensions MUST be rejected."""
+        from jwt.exceptions import InvalidTokenError
+
+        secret = 'secret'
+        payload_data = {'sub': 'attacker', 'role': 'admin'}
+        token = jwt.encode(
+            payload_data,
+            secret,
+            algorithm='HS256',
+            headers={'crit': ['x-custom-policy'], 'x-custom-policy': 'require-mfa'},
+        )
+
+        with pytest.raises(InvalidTokenError) as exc:
+            jwt.decode(token, secret, algorithms=['HS256'])
+        assert 'Unsupported critical extension' in str(exc.value)
